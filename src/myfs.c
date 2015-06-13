@@ -49,6 +49,7 @@ static int myfs2_open(const char *path, struct fuse_file_info *fi);
 static int myfs2_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi);
 static int myfs2_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi);
 static int myfs2_readlink(const char* path, char* buf, size_t size);
+static int myfs2_rename(const char *from, const char *to);
 static int myfs2_rmdir(const char* path);
 static int myfs2_symlink(const char* to, const char* from);
 static int myfs2_truncate(const char *path, off_t offset);
@@ -389,6 +390,73 @@ static int myfs2_readlink(const char* path, char* buf, size_t size) {
   return 0;
 }
 
+static int myfs2_rename(const char *from, const char *to) {
+  struct Inode *node = lookup(from);
+
+  char* parent = calloc(1, BLOCK_SIZE);
+  char* leaf = calloc(1, BLOCK_SIZE);
+  split_path(from, parent, leaf); 
+  struct Inode *parent_node = lookup(parent);
+
+  if (node->type == TYPE_DIR) {
+    parent_node->n_links--;
+  }
+
+  int inode_id = get_inode_id(node);
+
+  int block_id_1 = 0;
+  int pos_1 = 0;  
+  void *ptr = parent_node->blocks[block_id_1] + pos_1*sizeof(struct DirRecord);
+  struct DirRecord *record = (struct DirRecord*) ptr;
+  while(record->inode_id != inode_id) {
+    pos_1++;
+    if (pos_1 == 4) {
+      block_id_1++;
+      pos_1 = 0;
+    }
+    ptr = parent_node->blocks[block_id_1] + pos_1*sizeof(struct DirRecord);
+    record = (struct DirRecord*) ptr;
+  }
+
+  int block_id_0 = (parent_node->size - 1) / 4;
+  int pos_0 = (parent_node->size - 1) % 4;
+  ptr = parent_node->blocks[block_id_0] + pos_0*sizeof(struct DirRecord);
+  struct DirRecord *record_0 = (struct DirRecord*) ptr;
+ 
+  strcpy(record->name, record_0->name);
+  record->inode_id = record_0->inode_id; 
+
+  parent_node->size = parent_node->size - 1;
+
+  split_path(to, parent, leaf); 
+  parent_node = lookup(parent);
+
+  int block_id = parent_node->size / 4;
+  int pos = parent_node->size % 4;
+  if (!pos) {
+    parent_node->blocks[block_id] = calloc(1, BLOCK_SIZE);
+  }
+  parent_node->size = parent_node->size + 1;
+
+  ptr = parent_node->blocks[block_id] + pos*sizeof(struct DirRecord);
+  struct DirRecord *rec = (struct DirRecord*) ptr;
+
+  rec->inode_id = inode_id;
+  strcpy(rec->name, leaf);
+
+  if (node->type == TYPE_DIR) {
+    parent_node->n_links++;
+    ptr = parent_node->blocks[0] + sizeof(struct DirRecord);
+    rec = (struct DirRecord*) ptr;
+    rec->inode_id = get_inode_id(parent_node);
+  }
+
+  free(parent);
+  free(leaf);
+
+  return 0;
+}
+
 static int myfs2_rmdir(const char* path) {
   struct Inode *node = lookup(path);
   if (node->size > 2) {
@@ -575,7 +643,7 @@ static int myfs2_write(const char *path, const char *buf, size_t size, off_t off
   return size;
 }
 
-// BIND TO DUSE:
+// BIND TO FUSE:
 static struct fuse_operations myfs2_oper = {
   .getattr = myfs2_getattr,
   .link = myfs2_link,
@@ -585,6 +653,7 @@ static struct fuse_operations myfs2_oper = {
   .read = myfs2_read,
   .readdir = myfs2_readdir,
   .readlink = myfs2_readlink,
+  .rename = myfs2_rename,
   .rmdir = myfs2_rmdir,
   .symlink = myfs2_symlink,
   .truncate = myfs2_truncate,
