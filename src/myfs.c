@@ -274,14 +274,15 @@ static int myfs2_mknod(const char* path, mode_t mode, dev_t rdev) {
   if (!new_node) {
     new_node = calloc(1, sizeof(struct Inode));
   }
-  new_node->n_links = 1;
-  new_node->type = TYPE_REG;
-  new_node->next = NULL;
-  new_node->size = 0;
 
   struct Inode *last_node = get_inode(-1);
   last_node->next = new_node;
   new_node->prev = last_node;
+
+  new_node->n_links = 1;
+  new_node->type = TYPE_REG;
+  new_node->next = NULL;
+  new_node->size = 0;
 
   char* parent = calloc(1, BLOCK_SIZE);
   char* leaf = calloc(1, BLOCK_SIZE);
@@ -302,6 +303,9 @@ static int myfs2_mknod(const char* path, mode_t mode, dev_t rdev) {
 
   rec->inode_id = get_inode_id(new_node);
   strcpy(rec->name, leaf);
+
+  free(parent);
+  free(leaf);
 
   return 0;
 }
@@ -470,6 +474,9 @@ static int myfs2_rmdir(const char* path) {
   split_path(path, parent, leaf); 
   struct Inode *parent_node = lookup(parent);
 
+  free(parent);
+  free(leaf);
+
   parent_node->n_links--;
  
   return 0 | code;
@@ -510,6 +517,9 @@ static int myfs2_symlink(const char* to, const char* from) {
 
   rec->inode_id = get_inode_id(new_node);
   strcpy(rec->name, leaf);
+
+  free(parent);
+  free(leaf);
 
   return 0;  
 }
@@ -565,6 +575,10 @@ static int myfs2_unlink(const char* path) {
     to_unlink->size = 0;
   }
 
+
+  free(parent);
+  free(leaf);
+
   return 0;
 }
 
@@ -604,7 +618,10 @@ static int myfs2_write(const char *path, const char *buf, size_t size, off_t off
     struct DirRecord *rec = (struct DirRecord*) ptr;
 
     rec->inode_id = get_inode_id(node);
-    strcpy(rec->name, leaf);   
+    strcpy(rec->name, leaf);
+
+    free(parent);
+    free(leaf);
   }
 
   if (node->type != TYPE_REG) {
