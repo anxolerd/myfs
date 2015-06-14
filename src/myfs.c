@@ -178,7 +178,7 @@ static int myfs2_getattr(const char *path, struct stat *stbuf) {
       break;
     case TYPE_REG:
       stbuf->st_size = node->size;
-      stbuf->st_mode = S_IFREG | 0776;
+      stbuf->st_mode = S_IFREG | 0666;
       break;
     case TYPE_DIR:
       stbuf->st_size = node->size;
