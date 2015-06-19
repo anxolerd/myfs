@@ -9,7 +9,7 @@ This is a filesystem in userspace for RAM I wrote as a part of my university ass
 ## Compile and run:
 In this and following steps I assume you mount myfs to `test/mnt` directory. If you use another directory for testing replace test/mnt with your path
 ```[bash]
-$ git clone git@github.com:OlexandrKovalchuk/myfs.git
+$ git clone git@github.com:anxolerd/myfs.git
 $ cd myfs
 $ make all
 $ bin/myfs test/mnt
